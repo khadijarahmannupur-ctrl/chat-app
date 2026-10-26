@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+:root {
+  --bg-cream: #F8EADC;
+  --main-dark: #09251C;
+  --accent-amber: #A55704;
+}
+
+body {
+  background-color: var(--bg-cream);
+  color: var(--main-dark);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Custom Palette Utility Classes */
+.bg-cream {
+  background-color: #F8EADC;
+}
+
+.bg-deepgreen {
+  background-color: #09251C;
+}
+
+.bg-amber-accent {
+  background-color: #A55704;
+}
+
+.text-cream {
+  color: #F8EADC;
+}
+
+.text-deepgreen {
+  color: #09251C;
+}
+
+.text-amber-accent {
+  color: #A55704;
+}
+
+.border-deepgreen {
+  border-color: #09251C;
+}
+
+.border-amber-accent {
+  border-color: #A55704;
+}
+
+.border-cream {
+  border-color: #F8EADC;
+}
+
+/* Natural Calm Chat Area Background with Tree Pattern / Image Fallback */
+.chat-nature-bg {
+  background-color: #F8EADC;
+  background-image:
+    linear-gradient(rgba(248, 234, 220, 0.92), rgba(248, 234, 220, 0.92)),
+    /* url('/tree-bg.jpg'), */
+    url('/tree-pattern.svg');
+  background-repeat: repeat;
+  background-size: cover, cover, 120px 120px;
+  background-position: center;
+}
+
+/* Custom scrollbars matching theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(9, 37, 28, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(9, 37, 28, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(9, 37, 28, 0.4);
+}

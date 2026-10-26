@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" fill="none" opacity="0.08">
+  <!-- Minimalist calm tree silhouettes pattern -->
+  <g stroke="#09251C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Tree 1 -->
+    <path d="M30 45 L30 15 M30 15 L22 25 M30 20 L38 28 M30 28 L24 34 M30 32 L36 38" />
+    <circle cx="30" cy="14" r="1.5" fill="#09251C"/>
+    <!-- Tree 2 -->
+    <path d="M90 105 L90 75 M90 75 L82 85 M90 80 L98 88 M90 88 L84 94 M90 92 L96 98" />
+    <circle cx="90" cy="74" r="1.5" fill="#09251C"/>
+    <!-- Small Leaf elements -->
+    <path d="M85 30 C80 20, 70 25, 75 35 C80 40, 90 35, 85 30 Z" fill="#09251C" fill-opacity="0.2"/>
+    <path d="M25 90 C20 80, 10 85, 15 95 C20 100, 30 95, 25 90 Z" fill="#09251C" fill-opacity="0.2"/>
+  </g>
+</svg>
