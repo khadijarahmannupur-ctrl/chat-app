@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { FiX, FiUsers, FiUserPlus, FiUserMinus, FiShield, FiSearch, FiCheck } from "react-icons/fi";
+import { apiFetch } from "@/lib/api";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:5000";
 
@@ -27,9 +28,7 @@ export default function GroupInfoModal({
     if (!conversation?.id) return;
     setLoading(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/conversations/${conversation.id}`, {
-        credentials: "include",
-      });
+      const res = await apiFetch(`${BACKEND_URL}/api/conversations/${conversation.id}`);
       if (res.ok) {
         const data = await res.json();
         setDetails(data);
@@ -60,9 +59,7 @@ export default function GroupInfoModal({
         return;
       }
       try {
-        const res = await fetch(`${BACKEND_URL}/api/users/search?q=${encodeURIComponent(searchQuery.trim())}`, {
-          credentials: "include",
-        });
+        const res = await apiFetch(`${BACKEND_URL}/api/users/search?q=${encodeURIComponent(searchQuery.trim())}`);
         if (res.ok) {
           const data = await res.json();
           // Filter out users already in the group
@@ -82,10 +79,9 @@ export default function GroupInfoModal({
     setActionLoading(true);
     setError("");
     try {
-      const res = await fetch(`${BACKEND_URL}/api/conversations/${conversation.id}/members/add`, {
+      const res = await apiFetch(`${BACKEND_URL}/api/conversations/${conversation.id}/members/add`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ memberIds: selectedToAdd.map((u) => u.id) }),
       });
       if (!res.ok) {
@@ -109,10 +105,9 @@ export default function GroupInfoModal({
     setActionLoading(true);
     setError("");
     try {
-      const res = await fetch(`${BACKEND_URL}/api/conversations/${conversation.id}/members/remove`, {
+      const res = await apiFetch(`${BACKEND_URL}/api/conversations/${conversation.id}/members/remove`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ memberId }),
       });
       if (!res.ok) {

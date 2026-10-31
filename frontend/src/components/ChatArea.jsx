@@ -12,6 +12,7 @@ import {
   FiUsers,
   FiCheck,
 } from "react-icons/fi";
+import { apiFetch } from "@/lib/api";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:5000";
 
@@ -54,9 +55,8 @@ export default function ChatArea({
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch(`${BACKEND_URL}/api/upload`, {
+      const res = await apiFetch(`${BACKEND_URL}/api/upload`, {
         method: "POST",
-        credentials: "include",
         body: formData,
       });
 

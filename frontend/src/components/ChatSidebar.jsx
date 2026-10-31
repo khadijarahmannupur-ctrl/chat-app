@@ -11,6 +11,7 @@ import {
   FiPaperclip,
 } from "react-icons/fi";
 import { signOut } from "@/lib/auth-client";
+import { apiFetch } from "@/lib/api";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:5000";
 
@@ -38,9 +39,8 @@ export default function ChatSidebar({
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await fetch(
-          `${BACKEND_URL}/api/users/search?q=${encodeURIComponent(searchQuery.trim())}`,
-          { credentials: "include" }
+        const res = await apiFetch(
+          `${BACKEND_URL}/api/users/search?q=${encodeURIComponent(searchQuery.trim())}`
         );
         if (res.ok) {
           const data = await res.json();
@@ -68,9 +68,13 @@ export default function ChatSidebar({
 
   const handleLogout = async () => {
     try {
-      await signOut();
-      if (onLogout) onLogout();
-      window.location.reload();
+      localStorage.removeItem("bearer_token");
+      if (onLogout) {
+        await onLogout();
+      } else {
+        await signOut();
+        window.location.reload();
+      }
     } catch (err) {
       console.error("Logout failed:", err);
     }

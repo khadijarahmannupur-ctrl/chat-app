@@ -27,9 +27,24 @@ const app = express();
 const server = http.createServer(app);
 
 // CORS for Express
+const allowedOrigins = [
+  FRONTEND_URL.replace(/\/$/, ''),
+  'http://localhost:3000',
+  'http://127.0.0.1:3000'
+];
+
 app.use(cors({
-  origin: FRONTEND_URL,
-  credentials: true
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const cleanOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.includes(cleanOrigin) || cleanOrigin === FRONTEND_URL.replace(/\/$/, '')) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 
 app.use(express.json());
@@ -46,8 +61,11 @@ app.use('/uploads', express.static(uploadsDir));
 // Socket.io initialization with CORS
 const io = new Server(server, {
   cors: {
-    origin: FRONTEND_URL,
+    origin: (origin, callback) => {
+      callback(null, true);
+    },
     methods: ['GET', 'POST'],
+    allowedHeaders: ['Authorization'],
     credentials: true
   },
   maxHttpBufferSize: 5 * 1024 * 1024
@@ -102,14 +120,24 @@ async function findUserById(userId) {
 // ==========================================
 // AUTH & SESSION VALIDATION
 // ==========================================
-// Forward request's cookie header to Next.js Better Auth get-session endpoint
-async function validateSession(cookieHeader) {
-  if (!cookieHeader) return null;
+// Forward request's Authorization header (and cookie if present) to Next.js Better Auth get-session endpoint
+async function validateSession(authHeader, cookieHeader) {
+  const headers = {};
+  if (authHeader) {
+    headers['authorization'] = authHeader.startsWith('Bearer ')
+      ? authHeader
+      : `Bearer ${authHeader}`;
+  }
+  if (cookieHeader) {
+    headers['cookie'] = cookieHeader;
+  }
+  if (!headers['authorization'] && !headers['cookie']) {
+    return null;
+  }
+
   try {
     const res = await fetch(`${FRONTEND_URL}/api/auth/get-session`, {
-      headers: {
-        cookie: cookieHeader
-      }
+      headers
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -130,7 +158,9 @@ async function validateSession(cookieHeader) {
 
 // Express Auth Middleware
 const authMiddleware = async (req, res, next) => {
-  const user = await validateSession(req.headers.cookie);
+  const authHeader = req.headers.authorization;
+  const cookieHeader = req.headers.cookie;
+  const user = await validateSession(authHeader, cookieHeader);
   if (!user) {
     return res.status(401).json({ error: 'Unauthorized: Invalid or missing session' });
   }
@@ -640,14 +670,19 @@ app.post('/api/conversations/:id/read', authMiddleware, async (req, res) => {
 // ==========================================
 // SOCKET.IO REAL-TIME MESSAGING
 // ==========================================
-// Authenticate socket handshake by forwarding cookie header to Next.js get-session
+// Authenticate socket handshake by reading token from socket.handshake.auth (or fallback to headers/cookies)
 io.use(async (socket, next) => {
   try {
+    const token = socket.handshake.auth?.token;
+    const authHeader = token
+      ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`)
+      : socket.handshake.headers.authorization;
     const cookieHeader = socket.handshake.headers.cookie;
-    if (!cookieHeader) {
-      return next(new Error('Authentication error: Missing cookies'));
+
+    if (!authHeader && !cookieHeader) {
+      return next(new Error('Authentication error: Missing token or cookies'));
     }
-    const user = await validateSession(cookieHeader);
+    const user = await validateSession(authHeader, cookieHeader);
     if (!user) {
       return next(new Error('Authentication error: Invalid session'));
     }

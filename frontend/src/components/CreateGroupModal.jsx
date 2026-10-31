@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { FiX, FiUsers, FiSearch, FiCheck } from "react-icons/fi";
+import { apiFetch } from "@/lib/api";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:5000";
 
@@ -31,9 +32,7 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated }) {
         return;
       }
       try {
-        const res = await fetch(`${BACKEND_URL}/api/users/search?q=${encodeURIComponent(searchQuery.trim())}`, {
-          credentials: "include",
-        });
+        const res = await apiFetch(`${BACKEND_URL}/api/users/search?q=${encodeURIComponent(searchQuery.trim())}`);
         if (res.ok) {
           const data = await res.json();
           setSearchResults(data);
@@ -69,10 +68,9 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated }) {
     setError("");
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/conversations/group`, {
+      const res = await apiFetch(`${BACKEND_URL}/api/conversations/group`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           name: name.trim(),
           memberIds: selectedUsers.map((u) => u.id),

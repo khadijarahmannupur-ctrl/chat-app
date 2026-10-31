@@ -73,6 +73,7 @@ export default function AuthModal({ onAuthSuccess }) {
     setLoading(true);
 
     try {
+      let token = null;
       if (isLogin) {
         // Sign In
         const res = await signIn.email({
@@ -84,6 +85,7 @@ export default function AuthModal({ onAuthSuccess }) {
           setLoading(false);
           return;
         }
+        token = res.data?.token || res.data?.session?.token;
       } else {
         // Sign Up
         if (!name.trim()) {
@@ -101,6 +103,23 @@ export default function AuthModal({ onAuthSuccess }) {
           setError(res.error.message || "Signup failed");
           setLoading(false);
           return;
+        }
+        token = res.data?.token || res.data?.session?.token;
+      }
+
+      if (token) {
+        localStorage.setItem("bearer_token", token);
+      } else if (!localStorage.getItem("bearer_token")) {
+        try {
+          const tokenRes = await fetch("/api/auth/token");
+          if (tokenRes.ok) {
+            const tokenData = await tokenRes.json();
+            if (tokenData?.token) {
+              localStorage.setItem("bearer_token", tokenData.token);
+            }
+          }
+        } catch (e) {
+          // ignore
         }
       }
 

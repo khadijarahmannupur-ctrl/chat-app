@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSession } from "@/lib/auth-client";
+import { useSession, signOut } from "@/lib/auth-client";
 import { io } from "socket.io-client";
+import { apiFetch } from "@/lib/api";
 import AuthModal from "@/components/AuthModal";
 import ChatSidebar from "@/components/ChatSidebar";
 import ChatArea from "@/components/ChatArea";
@@ -15,6 +16,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:5000
 export default function Home() {
   const { data: sessionData, isPending } = useSession();
   const [currentUser, setCurrentUser] = useState(null);
+  const [tokenReady, setTokenReady] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -22,25 +24,57 @@ export default function Home() {
   const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false);
   const socketRef = useRef(null);
 
-  // Sync user from session
+  // Sync token to localStorage and user from session (handles Google OAuth redirect and first load)
   useEffect(() => {
-    if (sessionData?.user) {
-      setCurrentUser(sessionData.user);
-    } else {
-      setCurrentUser(null);
-      setActiveChat(null);
-      setConversations([]);
-      setMessages([]);
+    let isMounted = true;
+
+    async function syncTokenAndUser() {
+      if (sessionData?.user) {
+        let token = localStorage.getItem("bearer_token");
+        if (!token) {
+          try {
+            const tokenRes = await fetch("/api/auth/token");
+            if (tokenRes.ok) {
+              const tokenData = await tokenRes.json();
+              if (tokenData?.token) {
+                token = tokenData.token;
+                localStorage.setItem("bearer_token", token);
+              }
+            }
+          } catch (e) {
+            console.error("Failed to fetch bearer token:", e);
+          }
+        }
+
+        if (!isMounted) return;
+        setCurrentUser(sessionData.user);
+        setTokenReady(true);
+      } else if (!isPending) {
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+          socketRef.current = null;
+        }
+        localStorage.removeItem("bearer_token");
+        setCurrentUser(null);
+        setTokenReady(false);
+        setActiveChat(null);
+        setConversations([]);
+        setMessages([]);
+      }
     }
-  }, [sessionData]);
+
+    syncTokenAndUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [sessionData, isPending]);
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
     if (!currentUser) return;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/conversations`, {
-        credentials: "include",
-      });
+      const res = await apiFetch(`${BACKEND_URL}/api/conversations`);
       if (res.ok) {
         const data = await res.json();
         setConversations(data);
@@ -54,9 +88,7 @@ export default function Home() {
   const fetchMessages = useCallback(async (convId) => {
     if (!convId) return;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/conversations/${convId}/messages`, {
-        credentials: "include",
-      });
+      const res = await apiFetch(`${BACKEND_URL}/api/conversations/${convId}/messages`);
       if (res.ok) {
         const data = await res.json();
         setMessages(data);
@@ -70,13 +102,17 @@ export default function Home() {
     }
   }, []);
 
-  // Initialize Socket.io connection when logged in
+  // Initialize Socket.io connection only after token is confirmed in localStorage
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || !tokenReady) return;
 
     fetchConversations();
 
+    const token = localStorage.getItem("bearer_token") || "";
     const socket = io(BACKEND_URL, {
+      auth: {
+        token: token,
+      },
       withCredentials: true,
       transports: ["websocket", "polling"],
     });
@@ -137,10 +173,10 @@ export default function Home() {
         prev.map((c) =>
           c.id === data.conversationId
             ? {
-                ...c,
-                updatedAt: data.updatedAt,
-                lastMessage: data.lastMessage,
-              }
+              ...c,
+              updatedAt: data.updatedAt,
+              lastMessage: data.lastMessage,
+            }
             : c
         )
       );
@@ -174,7 +210,7 @@ export default function Home() {
     return () => {
       socket.disconnect();
     };
-  }, [currentUser, fetchConversations]);
+  }, [currentUser, tokenReady, fetchConversations]);
 
   // Select a chat
   const handleSelectChat = (conv) => {
@@ -188,10 +224,9 @@ export default function Home() {
   // Start or open direct 1-to-1 chat
   const handleStartDirectChat = async (recipientId) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/conversations/direct`, {
+      const res = await apiFetch(`${BACKEND_URL}/api/conversations/direct`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ recipientId }),
       });
       if (res.ok) {
@@ -216,6 +251,23 @@ export default function Home() {
       text,
       attachment,
     });
+  };
+
+  // Explicit sign-out: disconnect socket, remove token, call Better Auth signOut
+  const handleLogout = async () => {
+    try {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      localStorage.removeItem("bearer_token");
+      setCurrentUser(null);
+      setTokenReady(false);
+      await signOut();
+      window.location.reload();
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
   };
 
   // If session is loading
@@ -243,9 +295,8 @@ export default function Home() {
     <main className="h-screen w-screen flex bg-[#F8EADC] text-[#09251C] overflow-hidden">
       {/* Sidebar: On mobile, visible when activeChat is null; on desktop, fixed width */}
       <div
-        className={`h-full w-full md:w-80 lg:w-96 shrink-0 transition-all ${
-          activeChat ? "hidden md:flex" : "flex"
-        }`}
+        className={`h-full w-full md:w-80 lg:w-96 shrink-0 transition-all ${activeChat ? "hidden md:flex" : "flex"
+          }`}
       >
         <ChatSidebar
           currentUser={currentUser}
@@ -254,15 +305,14 @@ export default function Home() {
           onSelectChat={handleSelectChat}
           onOpenNewGroup={() => setIsGroupModalOpen(true)}
           onStartDirectChat={handleStartDirectChat}
-          onLogout={() => setCurrentUser(null)}
+          onLogout={handleLogout}
         />
       </div>
 
       {/* Chat Area: On mobile, visible when activeChat is set; on desktop, takes remaining space */}
       <div
-        className={`h-full flex-1 min-w-0 flex-col ${
-          activeChat ? "flex" : "hidden md:flex"
-        }`}
+        className={`h-full flex-1 min-w-0 flex-col ${activeChat ? "flex" : "hidden md:flex"
+          }`}
       >
         {activeChat ? (
           <ChatArea
@@ -300,7 +350,9 @@ export default function Home() {
         isOpen={isGroupModalOpen}
         onClose={() => setIsGroupModalOpen(false)}
         onGroupCreated={(newGroup) => {
-          setConversations((prev) => [newGroup, ...prev]);
+          setConversations((prev) =>
+            prev.some((c) => c.id === newGroup.id) ? prev : [newGroup, ...prev]
+          );
           handleSelectChat(newGroup);
         }}
       />
